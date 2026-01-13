@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShopManager Pro | Enterprise</title>
+    <style>
+        :root { --primary: #0f172a; --success: #059669; --accent: #2563eb; --momo: #eab308; --bg: #f1f5f9; }
+        * { font-family: 'Inter', sans-serif; box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg); color: #1e293b; }
+        
+        /* The Login Screen you saw in the photo */
+        #auth-overlay { position: fixed; inset: 0; background: var(--primary); z-index: 999; display: flex; align-items: center; justify-content: center; color: white; }
+        .auth-card { background: #1e293b; padding: 40px; border-radius: 16px; text-align: center; width: 90%; max-width: 400px; border: 1px solid #334155; }
+        
+        header { background: var(--primary); color: white; padding: 1rem; display: flex; justify-content: space-between; align-items: center; }
+        .container { max-width: 1100px; margin: auto; padding: 20px; }
+        .panel { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; border-bottom: 4px solid var(--accent); }
+        
+        input { padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 10px; width: 100%; }
+        .btn { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; width: 100%; margin-top: 5px; }
+        .btn-main { background: var(--accent); color: white; }
+        .btn-sell { background: var(--success); color: white; width: auto; padding: 5px 10px; font-size: 12px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #f1f5f9; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="auth-overlay">
+    <div class="auth-card">
+        <h2>ShopManager Pro</h2>
+        <p style="margin: 15px 0; opacity: 0.7;">Business Performance Terminal</p>
+        <input type="password" id="pinInput" placeholder="Enter PIN (Default: 1234)">
+        <button class="btn btn-main" onclick="handleLogin('manager')">Manager Login</button>
+        <button class="btn" style="background: transparent; color: white; border: 1px solid #334155;" onclick="handleLogin('cashier')">Staff Access</button>
+    </div>
+</div>
+
+<header>
+    <h2>ShopManager Pro (<span id="role-display">...</span>)</h2>
+    <button onclick="location.reload()" style="background:none; color:white; border:1px solid white; cursor:pointer; padding:5px;">Logout</button>
+</header>
+
+<div class="container">
+    <div id="manager-view" class="hidden">
+        <div class="stats-grid">
+            <div class="stat-card"><h3>Daily Profit</h3><p id="p-profit">GH₵ 0.00</p></div>
+            <div class="stat-card"><h3>Inventory Value</h3><p id="p-val">GH₵ 0.00</p></div>
+        </div>
+        <div class="panel">
+            <h3>📦 Add/Update Stock</h3>
+            <div style="display: flex; gap: 10px; margin-top:10px;">
+                <input type="text" id="name" placeholder="Item Name">
+                <input type="number" id="cost" placeholder="Cost">
+                <input type="number" id="sell" placeholder="Price">
+                <input type="number" id="qty" placeholder="Qty">
+                <button class="btn-main" style="border-radius:8px; padding:0 20px;" onclick="addStock()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3>🛒 Sales Counter</h3>
+        <table id="invTable">
+            <thead><tr><th>Item</th><th>Price</th><th>Stock</th><th>Action</th></tr></thead>
+            <tbody id="invBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const CORRECT_PIN = "1234";
+    let inventory = JSON.parse(localStorage.getItem('shop_inv')) || [];
+    let sales = JSON.parse(localStorage.getItem('shop_sales')) || [];
+
+    // The Login Function that opens the system
+    function handleLogin(role) {
+        const enteredPin = document.getElementById('pinInput').value;
+        
+        if (role === 'manager') {
+            if (enteredPin === CORRECT_PIN) {
+                document.getElementById('manager-view').classList.remove('hidden');
+                document.getElementById('auth-overlay').style.display = 'none';
+                document.getElementById('role-display').innerText = 'Manager';
+            } else {
+                alert("Incorrect Manager PIN!");
+                return;
+            }
+        } else {
+            // Staff Access
+            document.getElementById('auth-overlay').style.display = 'none';
+            document.getElementById('role-display').innerText = 'Staff';
+        }
+        render();
+    }
+
+    function addStock() {
+        const n = document.getElementById('name').value;
+        const c = parseFloat(document.getElementById('cost').value);
+        const s = parseFloat(document.getElementById('sell').value);
+        const q = parseInt(document.getElementById('qty').value);
+
+        if(!n || !c || !s) return alert("Fill all fields");
+        inventory.push({ id: Date.now(), name: n, cost: c, price: s, stock: q });
+        localStorage.setItem('shop_inv', JSON.stringify(inventory));
+        render();
+    }
+
+    function sellItem(id) {
+        const item = inventory.find(i => i.id === id);
+        if(item.stock > 0) {
+            item.stock--;
+            sales.push({ name: item.name, profit: item.price - item.cost, price: item.price });
+            localStorage.setItem('shop_inv', JSON.stringify(inventory));
+            localStorage.setItem('shop_sales', JSON.stringify(sales));
+            render();
+        } else { alert("Out of Stock!"); }
+    }
+
+    function render() {
+        const body = document.getElementById('invBody');
+        body.innerHTML = inventory.map(i => `
+            <tr>
+                <td>${i.name}</td>
+                <td>GH₵ ${i.price}</td>
+                <td>${i.stock}</td>
+                <td><button class="btn-sell" onclick="sellItem(${i.id})">Sell</button></td>
+            </tr>
+        `).join('');
+
+        const totalProfit = sales.reduce((a, b) => a + b.profit, 0);
+        const totalVal = inventory.reduce((a, b) => a + (b.cost * b.stock), 0);
+        document.getElementById('p-profit').innerText = "GH₵ " + totalProfit.toFixed(2);
+        document.getElementById('p-val').innerText = "GH₵ " + totalVal.toFixed(2);
+    }
+</script>
+</body>
+</html>
